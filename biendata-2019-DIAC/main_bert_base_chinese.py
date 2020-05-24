@@ -4,31 +4,27 @@ warnings.filterwarnings('ignore')
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from transformers import BertConfig, BertForSequenceClassification, AdamW, WarmupLinearSchedule
+from transformers import BertConfig, BertForSequenceClassification, AdamW
+from transformers import WarmupLinearSchedule
+# from transformers import get_linear_schedule_with_warmup  # 旧版为from transformers import WarmupLinearSchedule
 import os
 import utils
 import layers
 os.environ["CUDA_VISIBLE_DEVICES"]='0'
+print('使用的硬件：', os.environ["CUDA_VISIBLE_DEVICES"])
 
 # set hyper parameter
-# EPOCH = 5
-# BATCH_SIZE = 6  # 1080_7跑的BATCH_SIZE = 6
-# BATCH_SIZE = 12  # xp1跑的BATCH_SIZE = 12
-# BATCH_SIZE = 6  # 1080_7跑的BATCH_SIZE = 6 LR=2
-# LR = 2e-5  # f1值很低
-
 EPOCH = 5
 LR = 1e-5
-BATCH_SIZE = 16  # max_len=128 bs=24会出现out of memory
-print('***************v1:0 bert_base_chinese_epoch5_lr1e5_ml128_bs16_100000***************')
+BATCH_SIZE = 16  # 16  # max_len=128 bs=24会出现out of memory
 
 WARMUP_STEPS = 100
 T_TOTAL = 1000
-FOLD = 5
+FOLD = 3
 USE_GPU = True
 
 do_trian = True
-do_test = True
+do_test = False
 
 def train(fold_all):
     # config = BertConfig.from_pretrained('../../model_lib/robert/pytorch/chinese_roberta_wwm_large_ext_pytorch/bert_config.json')
@@ -42,6 +38,8 @@ def train(fold_all):
         BEST_EPOCH = 0
         loss_list = []
         f1_list = []
+        total_loss_list = []
+        total_f1_list = []
         flag = 0
 
         print('正在加载模型...')
@@ -54,11 +52,12 @@ def train(fold_all):
             # model = BertForSequenceClassification.from_pretrained('../../model_lib/bert/pytorch/xs/', config=config)
             model = BertForSequenceClassification.from_pretrained('../../model_lib/bert/pytorch/bert-base-chinese/', config=config)
         optimizer = AdamW(model.parameters(), lr=LR, correct_bias=False)
-        scheduler = WarmupLinearSchedule(optimizer, warmup_steps = WARMUP_STEPS, t_total = T_TOTAL)  # T_TOTAL？
+        scheduler = WarmupLinearSchedule(optimizer, warmup_steps = WARMUP_STEPS, t_total = T_TOTAL)  # 旧版的调用方法
+        # scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=WARMUP_STEPS, num_training_steps=-1)
 
         # 制作交叉验证的数据集
         train_list = []
-        for _ in range(5):
+        for _ in range(3):
             if _ != fold_index:
                 train_list = train_list + fold_all[_]
         dev_list = fold_all[fold_index]
@@ -92,7 +91,6 @@ def train(fold_all):
                 loss.backward()
                 optimizer.step()
                 scheduler.step()
-                
 
                 # 存储单批次f1 loss
                 f1 = utils.batch_f1(logits, label)
@@ -104,6 +102,8 @@ def train(fold_all):
                 if flag % 200 == 0:
                     f1_mean = np.mean(f1_list)
                     loss_mean = np.mean(loss_list)
+                    total_f1_list.extend(f1_list)
+                    total_loss_list.extend(loss_list)
                     f1_list = []
                     loss_list = []
                     print('fold: {} | epoch: {} | f1: {} | loss: {}'.format(fold_index, epoch, f1_mean, loss_mean))
@@ -121,6 +121,10 @@ def train(fold_all):
             print('fold: {} | 验证集最优F1值: {}'.format(fold_index, BEST_F1))
             print('fold: {} | 验证集最优epoch: {}'.format(fold_index, BEST_EPOCH))
             print('***********************************************************************')
+
+    # 将total_f1_list和total_loss_list保存为文件格式，以便后期根据特定的要求画图
+    np.save('data/total_f1.npy', np.array(total_f1_list))
+    np.save('data/total_loss.npy', np.array(total_loss_list))
 
 def val(model, dev_dataloader):
     print('正在验证...')
@@ -157,7 +161,6 @@ def test(test_dataloader):
     fold_logits_result = []
     for fold_index in range(FOLD):
         model = torch.load('bert_base_chinese_epoch5_lr1e5_ml128_bs16_100000_' + str(fold_index) + 'k_' + 'best_model.m')
-        # model = torch.load('bert_wwm_ext_f5k_epoch4_lr1_ml64_bs32_' + str(fold_index) + 'k_' + 'best_model.m')
         result_list = []
         result_logits_list = []
         model.eval()
@@ -185,7 +188,7 @@ def test(test_dataloader):
     return fold_result, fold_logits_result
 
 if __name__ == "__main__":
-    # print('正在预处理...')
+    print('正在预处理...')
     fold_all, test_bert_list = utils.main()
     if do_trian:
         train(fold_all)

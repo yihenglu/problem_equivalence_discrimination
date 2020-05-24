@@ -17,9 +17,10 @@ np.random.seed(520)
 # 需要改的地方 书签1 2
 # set bert tokenizer
 # tokenizer = BertTokenizer.from_pretrained('../../model_lib/bert/pytorch/bert-wwm-ext/vocab.txt')
-# tokenizer = BertTokenizer.from_pretrained('../../model_lib/bert/pytorch/bert-base-chinese/bert-base-chinese-vocab.txt')
+tokenizer = BertTokenizer.from_pretrained('../../model_lib/bert/pytorch/bert-base-chinese/bert-base-chinese-vocab.txt')
 # tokenizer = BertTokenizer.from_pretrained('../../model_lib/robert/pytorch/RoBERTa_zh_Large_PyTorch/vocab.txt')
-tokenizer = BertTokenizer.from_pretrained('../../model_lib/robert/pytorch/chinese_roberta_wwm_large_ext_pytorch/vocab.txt')
+# tokenizer = BertTokenizer.from_pretrained('../../model_lib/robert/pytorch/chinese_roberta_wwm_large_ext_pytorch/vocab.txt')
+# tokenizer = BertTokenizer.from_pretrained('F:/NLP/NLP_resource_download/model_lib/bert/pytorch/bert-base-chinese/bert-base-chinese-vocab.txt')
 
 # set hyper parameter
 # MAX_LEN = 40  # 接近最优
@@ -85,6 +86,11 @@ def combine_pn(p_list, n_list):
     np.random.shuffle(p_list)
     np.random.shuffle(n_list)
     n_list = n_list[:len(p_list)]  # 设置负样本数量与正样本一致
+
+    # 先设置成小数据集跑通实验
+    p_list = p_list[:10000]
+    n_list = n_list[:10000]
+
     pn_list = np.vstack((p_list, n_list))
     np.random.shuffle(pn_list)
     print('positive samples:{} negitive samples:{}'.format(len(p_list), len(n_list)))
@@ -97,18 +103,18 @@ def split_data(pn_list):
     pn_len = len(pn_list)
 
     # 3折交叉验证
-    # fold1 = pn_list[:int(pn_len/3)]
-    # fold2 = pn_list[int(pn_len/3):int(pn_len/3)*2]
-    # fold3 = pn_list[int(pn_len/5)*2:]
-    # return [fold1, fold2, fold3]
+    fold1 = pn_list[:int(pn_len/3)]
+    fold2 = pn_list[int(pn_len/3):int(pn_len/3)*2]
+    fold3 = pn_list[int(pn_len/5)*2:]
+    return [fold1, fold2, fold3]
 
     # 5折交叉验证
-    fold1 = pn_list[:int(pn_len/5)]
-    fold2 = pn_list[int(pn_len/5):int(pn_len/5)*2]
-    fold3 = pn_list[int(pn_len/5)*2:int(pn_len/5)*3]
-    fold4 = pn_list[int(pn_len/5)*3:int(pn_len/5)*4]
-    fold5 = pn_list[int(pn_len/5)*4:]
-    return [fold1, fold2, fold3, fold4, fold5]
+    # fold1 = pn_list[:int(pn_len/5)]
+    # fold2 = pn_list[int(pn_len/5):int(pn_len/5)*2]
+    # fold3 = pn_list[int(pn_len/5)*2:int(pn_len/5)*3]
+    # fold4 = pn_list[int(pn_len/5)*3:int(pn_len/5)*4]
+    # fold5 = pn_list[int(pn_len/5)*4:]
+    # return [fold1, fold2, fold3, fold4, fold5]
 
     # 9折交叉验证 xp1
     # fold1 = pn_list[:int(pn_len / 9)]
